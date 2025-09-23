@@ -1,0 +1,18 @@
+[project]
+name = "bridge"
+version = "0.1.0"
+description = "Legacy Bridge"
+readme = "README.md"
+license = "GPL-3.0-only"
+authors = [
+    { name = "minkedalt", email = "alt.gh@minkedup.xyz" }
+]
+requires-python = ">=3.11"
+dependencies = []
+
+[project.scripts]
+bridge = "bridge:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
