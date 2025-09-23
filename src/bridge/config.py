@@ -17,6 +17,17 @@ class ConfigParseError(Exception):
 
 
 @dataclasses.dataclass(frozen=True)
+class ClientSection:
+    """
+    A `client.*` section.
+    """
+
+    name: str
+    host: str
+    port: int
+
+
+@dataclasses.dataclass(frozen=True)
 class Config:
     """
     Application Configuration.
@@ -24,6 +35,7 @@ class Config:
 
     host: str
     port: int
+    clients: list[ClientSection]
 
 
 def _require_attribute(
@@ -37,6 +49,16 @@ def _require_attribute(
         raise ConfigParseError(
             f"{prefix}.{key} does not exist or is not of type {typ.__name__}"
         )
+
+
+def _load_client_section(name: str, table: dict[str, Any]) -> ClientSection:
+    _require_attribute(table, "host", str, prefix=f"client.{name}")
+    _require_attribute(table, "port", int, prefix=f"client.{name}")
+
+    host: str = table["host"]
+    port: int = table["port"]
+
+    return ClientSection(name, host, port)
 
 
 def try_load_config(path: str) -> Config:
@@ -58,5 +80,17 @@ def try_load_config(path: str) -> Config:
     host = cast(str, raw["host"])
     port = cast(int, raw["port"])
 
-    return Config(host, port)
+    if ("client" in raw) and (not isinstance(raw["client"], dict)):
+        raise ConfigParseError(".client must be a dict")
 
+    sections = []
+    client_entries: dict[str, Any] = raw["client"] if "client" in raw else {}
+
+    for name, table in client_entries.items():
+        if not isinstance(table, dict):
+            raise ConfigParseError(f".client.{name} must be a dict")
+
+        section = _load_client_section(name, table)
+        sections.append(section)
+
+    return Config(host, port, sections)

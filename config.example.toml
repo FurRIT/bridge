@@ -1,2 +1,6 @@
 host = "localhost"
 port = 8081
+
+[client.telegram]
+host = "localhost"
+port = 8080
