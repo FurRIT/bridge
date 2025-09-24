@@ -3,6 +3,7 @@ Configuration loading.
 """
 
 from typing import Any, cast
+import os.path
 import tomllib
 import dataclasses
 
@@ -46,6 +47,7 @@ class Config:
 
     host: str
     port: int
+    cache: str
     site: SiteSection
     clients: list[ClientSection]
 
@@ -100,9 +102,16 @@ def try_load_config(path: str) -> Config:
 
     _require_attribute(raw, "host", str)
     _require_attribute(raw, "port", int)
+    _require_attribute(raw, "cache", str)
 
     host = cast(str, raw["host"])
     port = cast(int, raw["port"])
+    cache = cast(str, raw["cache"])
+
+    # XXX(mwp): resolve the cache path relative to the configuration file if it
+    # is a relative path
+    if not os.path.isabs(cache):
+        cache = os.path.relpath(cache, start=os.path.dirname(path))
 
     if not ("site" in raw and isinstance(raw["site"], dict)):
         raise ConfigParseError(".site must be a dict")
@@ -122,4 +131,4 @@ def try_load_config(path: str) -> Config:
         section = _load_client_section(name, table)
         sections.append(section)
 
-    return Config(host, port, site, sections)
+    return Config(host, port, cache, site, sections)

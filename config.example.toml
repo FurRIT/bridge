@@ -1,10 +1,11 @@
 host = "localhost"
 port = 8081
+cache = "context.cache"
 
 [site]
-host = ""      # host of the website
-username = ""  # website username
-password = ""  # website password
+host = ""     # host of the website
+username = "" # website username
+password = "" # website password
 
 [client.telegram]
 host = "localhost"
