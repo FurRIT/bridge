@@ -12,7 +12,7 @@ import textwrap
 import playwright.async_api
 
 from bridge.config import ConfigParseError, Config, try_load_config
-from bridge.site.auth import i_login
+from bridge.site.auth import i_login, try_load_do_auth
 
 
 async def run(config: Config) -> None:
@@ -22,12 +22,18 @@ async def run(config: Config) -> None:
     play = await playwright.async_api.async_playwright().start()
 
     browser = await play.firefox.launch(headless=False)
+    context, page = await try_load_do_auth(
+        browser,
+        config.site.host,
+        config.cache,
+        config.site.username,
+        config.site.password,
+    )
 
-    context = await browser.new_context()
-    page = await context.new_page()
+    await page.close()
 
-    await i_login(page, config.site.host, config.site.username, config.site.password)
-    await asyncio.sleep(10)
+    await context.storage_state(path=config.cache)
+    await context.close()
 
     await browser.close()
 
