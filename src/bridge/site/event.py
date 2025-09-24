@@ -43,7 +43,7 @@ async def i_extract_event_ids(page: playwright.async_api.Page, host: str) -> lis
     return uids
 
 
-class UserFurryDetails(TypedDict):
+class RawUserFurryDetails(TypedDict):
     """
     Generic.
     """
@@ -51,39 +51,37 @@ class UserFurryDetails(TypedDict):
     furName: str
 
 
-class User(TypedDict):
+class RawUser(TypedDict):
     """
     Generic.
     """
 
-    furryDetails: UserFurryDetails
+    furryDetails: RawUserFurryDetails
     furRITUsername: str
     _id: str
 
 
-class AttendeeUser(TypedDict):
+class RawAttendeeUser(TypedDict):
     """
     `.attendees[].user`
     """
 
-    furryDetails: UserFurryDetails
+    furryDetails: RawUserFurryDetails
     _id: str
 
 
-class Attendee(TypedDict):
+class RawAttendee(TypedDict):
     """
     `.attendees[]`
     """
 
     _id: str
-    user: AttendeeUser
+    user: RawAttendeeUser
     partstat: str
 
 
-class Event(TypedDict):
-    # repeat rule
+class RawEvent(TypedDict):
     rrule: None
-    # exception rule
     exrule: None
     status: str
     allday: bool
@@ -91,8 +89,8 @@ class Event(TypedDict):
     exdate: list[None]
     categories: list[str]
     _id: str
-    organizer: User
-    attendees: list[Attendee]
+    organizer: RawUser
+    attendees: list[RawAttendee]
     created: str
     dtstamp: str
     alarm: list[None]
@@ -106,7 +104,7 @@ class Event(TypedDict):
 
 class GetEventResponse(TypedDict):
     success: bool
-    data: Event
+    data: RawEvent
     requestorHasUpdatePrivs: bool
     csrfToken: str
 
