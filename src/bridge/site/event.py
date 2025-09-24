@@ -2,7 +2,7 @@
 Event Scraping/Fetching Utilities.
 """
 
-from typing import TypedDict, cast
+from typing import TypedDict, Literal, cast
 import re
 import sys
 import json
@@ -80,10 +80,19 @@ class RawAttendee(TypedDict):
     partstat: str
 
 
+class RawTelegramMessage(TypedDict):
+    """
+    `.telegramMessages[]`
+    """
+
+    chatId: int
+    messageId: int
+
+
 class RawEvent(TypedDict):
     rrule: None
     exrule: None
-    status: str
+    status: Literal["TENTATIVE"] | Literal["CONFIRMED"] | Literal["CANCELED"]
     allday: bool
     rdate: list[None]
     exdate: list[None]
@@ -94,7 +103,7 @@ class RawEvent(TypedDict):
     created: str
     dtstamp: str
     alarm: list[None]
-    telegramMessages: list[None]
+    telegramMessages: list[RawTelegramMessage]
     summery: str
     description: str
     location: str
