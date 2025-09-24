@@ -33,6 +33,7 @@ class SiteSection:
     A `site` section.
     """
 
+    host: str
     username: str
     password: str
 
@@ -63,13 +64,15 @@ def _require_attribute(
 
 
 def _load_site_section(table: dict[str, Any]) -> SiteSection:
+    _require_attribute(table, "host", str, prefix="site")
     _require_attribute(table, "username", str, prefix="site")
     _require_attribute(table, "password", str, prefix="site")
 
+    host: str = table["host"]
     username: str = table["username"]
     password: str = table["password"]
 
-    return SiteSection(username, password)
+    return SiteSection(host, username, password)
 
 
 def _load_client_section(name: str, table: dict[str, Any]) -> ClientSection:

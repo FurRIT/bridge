@@ -2,8 +2,9 @@ host = "localhost"
 port = 8081
 
 [site]
-username = ""
-password = ""
+host = ""      # host of the website
+username = ""  # website username
+password = ""  # website password
 
 [client.telegram]
 host = "localhost"
