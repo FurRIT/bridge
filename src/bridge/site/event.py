@@ -90,6 +90,30 @@ class RawTelegramMessage(TypedDict):
 
 
 class RawEvent(TypedDict):
+    """
+    Root-Level Event.
+
+    rrule: Event repition rule; nulled out to avoid annotation.
+    exrule: Exception to repitition rule; nulled out to avoid annotation.
+    status: ...
+    allday: ...
+    rdate: Has to do with repitition; nulled out to avoid annotation.
+    exdate: Has to do with exceptions; nulled out to avoid annotation.
+    categories: Basic Event tags.
+    _id: Unique Event Identifier.
+    organizer: Event Organizer.
+    attendees: List of partial User data and response type.
+    created: ISO Encoded time string of Event creation.
+    dtstamp: The same as created (?)
+    alarm: Has to do with reminders; nulled out to avoid annotation.
+    telegramMessages: Store of already-sent TG messages.
+    summery: Short summary of Event.
+    description: Longer description of Event.
+    location: Short location of Event.
+    dtstart: ISO Encoded Event start time.
+    dtend: ISO Encoded Event end time.
+    """
+
     rrule: None
     exrule: None
     status: Literal["TENTATIVE"] | Literal["CONFIRMED"] | Literal["CANCELED"]
