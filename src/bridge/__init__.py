@@ -11,21 +11,24 @@ import textwrap
 
 import playwright.async_api
 
-from bridge.config import ConfigParseError, try_load_config
+from bridge.config import ConfigParseError, Config, try_load_config
+from bridge.site.auth import i_login
 
 
-async def run() -> None:
+async def run(config: Config) -> None:
     """
     Run Application.
     """
     play = await playwright.async_api.async_playwright().start()
 
     browser = await play.firefox.launch(headless=False)
-    page = await browser.new_page()
 
-    await page.goto("https://playwright.dev")
+    context = await browser.new_context()
+    page = await context.new_page()
 
-    await asyncio.sleep(30)
+    await i_login(page, config.site.host, config.site.username, config.site.password)
+    await asyncio.sleep(10)
+
     await browser.close()
 
 
@@ -58,4 +61,4 @@ def main() -> None:
     except ConfigParseError as error:
         _error(f"error: occured during config parsing; {error.reason}")
 
-    # asyncio.run(run())
+    asyncio.run(run(config))
