@@ -2,6 +2,7 @@
 Authorization Functionality.
 """
 
+import os.path
 import playwright.async_api
 
 
@@ -30,3 +31,33 @@ async def check_auth(page: playwright.async_api.Page, host: str) -> bool:
 
     await page.goto(f"https://{host}/events")
     return not page.url.endswith("/login")
+
+
+async def try_load_do_auth(
+    browser: playwright.async_api.Browser,
+    host: str,
+    cache: str,
+    username: str,
+    password: str,
+) -> tuple[playwright.async_api.BrowserContext, playwright.async_api.Page]:
+    """
+    Try to load authorization credentials from disk and create a new
+    (BrowserContext, Page) with them.
+
+    Create a new (BrowserContext, Page) if the credentials don't work.
+    """
+    fresh = not os.path.isfile(cache)
+
+    context = await browser.new_context(storage_state=(cache if not fresh else None))
+    page = await context.new_page()
+
+    if fresh:
+        await i_login(page, host, username, password)
+        return (context, page)
+
+    works = await check_auth(page, host)
+    if works:
+        return (context, page)
+
+    await i_login(page, host, username, password)
+    return (context, page)
