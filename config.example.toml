@@ -1,6 +1,7 @@
 host = "localhost"
 port = 8081
-cache = "context.cache"
+cache = "events.cache"
+authcache = "auth.cache"
 
 [site]
 host = ""     # host of the website

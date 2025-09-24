@@ -26,7 +26,7 @@ async def run(config: Config) -> None:
     context, page = await try_load_do_auth(
         browser,
         config.site.host,
-        config.cache,
+        config.authcache,
         config.site.username,
         config.site.password,
     )
@@ -36,7 +36,7 @@ async def run(config: Config) -> None:
 
     await page.close()
 
-    await context.storage_state(path=config.cache)
+    await context.storage_state(path=config.authcache)
     await context.close()
 
     await browser.close()
