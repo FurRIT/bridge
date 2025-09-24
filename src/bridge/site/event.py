@@ -4,8 +4,6 @@ Event Scraping/Fetching Utilities.
 
 from typing import cast
 import re
-import sys
-import json
 
 import playwright.async_api
 
@@ -45,6 +43,7 @@ async def i_extract_event_ids(page: playwright.async_api.Page, host: str) -> lis
 
     return uids
 
+
 async def i_extract_event(
     context: playwright.async_api.BrowserContext, host: str, uid: str
 ) -> GetEventResponse | None:
@@ -59,7 +58,6 @@ async def i_extract_event(
         return None
 
     body = await response.json()
-    json.dump(body, sys.stdout)
-
     typed = cast(GetEventResponse, body)
+
     return typed
