@@ -13,6 +13,7 @@ import playwright.async_api
 
 from bridge.config import ConfigParseError, Config, try_load_config
 from bridge.site.auth import i_login, try_load_do_auth
+from bridge.site.event import i_extract_event_ids, i_extract_event
 
 
 async def run(config: Config) -> None:
@@ -29,6 +30,9 @@ async def run(config: Config) -> None:
         config.site.username,
         config.site.password,
     )
+
+    head, *_ = await i_extract_event_ids(page, config.site.host)
+    await i_extract_event(context, config.site.host, head)
 
     await page.close()
 
