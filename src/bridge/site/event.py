@@ -144,7 +144,7 @@ class GetEventResponse(TypedDict):
 
 async def i_extract_event(
     context: playwright.async_api.BrowserContext, host: str, uid: str
-) -> None:
+) -> GetEventResponse | None:
     """
     Extract Event information.
     """
@@ -157,5 +157,6 @@ async def i_extract_event(
 
     body = await response.json()
     json.dump(body, sys.stdout)
-    # typed = cast(GetEventResponse, body)
-    # print(typed["data"])
+
+    typed = cast(GetEventResponse, body)
+    return typed
