@@ -26,7 +26,7 @@ def load_cache(path: str) -> Sequence[CacheEntry]:
     Load entries from a Cache file; returns an empty Sequence if the file does
     not exist.
     """
-    if not os.path.exists(path):
+    if not os.path.isfile(path):
         return []
 
     with open(path, "r", encoding="utf-8") as file:
@@ -51,5 +51,7 @@ def write_cache(path: str, entries: Sequence[CacheEntry]) -> None:
     Destructively overwrite the Cache file with new entries.
     """
 
+    se = list(map(dataclasses.asdict, entries))
+
     with open(path, "w", encoding="utf-8") as file:
-        json.dump(entries, file)
+        json.dump(se, file)
