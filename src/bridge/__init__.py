@@ -12,6 +12,7 @@ import logging
 import asyncio
 import argparse
 import textwrap
+import dataclasses
 
 import aiohttp
 import playwright.async_api
@@ -23,6 +24,15 @@ from bridge.site.auth import try_load_do_auth
 from bridge.site.event import i_extract_event_ids, i_extract_event
 
 logging.basicConfig(level=logging.INFO)
+
+
+@dataclasses.dataclass(frozen=True)
+class AppContext:
+    """
+    App Synchronization Context.
+    """
+
+    cache_lock: asyncio.Lock = dataclasses.field(default_factory=asyncio.Lock)
 
 
 async def fetch_events(config: Config) -> Sequence[Event]:
@@ -141,12 +151,14 @@ class _PartialCacheEntry(NamedTuple):
     rev_id: int
 
 
-async def fetch_push_events(config: Config) -> None:
+async def fetch_push_events(ctx: AppContext, config: Config) -> None:
     """
     Run fetch_events then push_event for each one.
 
     Updates the Cache with seen events.
     """
+
+    await ctx.cache_lock.acquire()
 
     events = await fetch_events(config)
     hashes: list[str] = list(
@@ -216,15 +228,18 @@ async def fetch_push_events(config: Config) -> None:
     n_entries.extend(map(_derive_entry, to_push))
 
     write_cache(config.cache, n_entries)
+    ctx.cache_lock.release()
 
 
 async def run(config: Config) -> None:
     """
     Run Application.
     """
+    ctx = AppContext()
+
     try:
         while True:
-            await fetch_push_events(config)
+            await fetch_push_events(ctx, config)
 
             logging.info("awaiting next poll...")
             await asyncio.sleep(config.frequency)
