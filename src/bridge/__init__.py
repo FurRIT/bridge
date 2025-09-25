@@ -13,6 +13,7 @@ import asyncio
 import argparse
 import textwrap
 
+import aiohttp
 import playwright.async_api
 
 from bridge.config import ConfigParseError, Config, try_load_config
@@ -84,6 +85,49 @@ def _hash_event(event: Event) -> bytes:
     return hasher.digest()
 
 
+_EXPECTED_PUSH_RESPONSES = frozenset([200, 201])
+
+
+async def push_event(config: Config, event: Event, rev_id: int) -> None:
+    """
+    Push an Event to all Clients.
+    """
+
+    se_dict = event.to_dict()
+    se_str = json.dumps(se_dict)
+
+    se_bytes = se_str.encode("utf-8")
+    session = aiohttp.ClientSession()
+
+    for client in config.clients:
+        url = f"http://{client.host}:{client.port}/event"
+        headers = {"Content-Type": "application/json"}
+
+        hoisted: aiohttp.ClientResponse | None = None
+
+        try:
+            async with session.post(url, data=se_bytes, headers=headers) as response:
+                hoisted = response
+        except aiohttp.ClientConnectionError:
+            logging.error("could not connect to client %s", client.name)
+            continue
+
+        if hoisted.status not in _EXPECTED_PUSH_RESPONSES:
+            logging.error(
+                "received unexpected response status=%s from client %s",
+                hoisted.status,
+                client.name,
+            )
+            continue
+
+        if hoisted.status == 200:
+            logging.info("client %s created new event id=%s", client.name, event.uid)
+        else:
+            logging.info("client %s updated event id=%s", client.name, event.uid)
+
+    await session.close()
+
+
 class _PartialCacheEntry(NamedTuple):
     """
     Partial Cache Entry; for indexing by uid.
@@ -129,9 +173,18 @@ async def run(config: Config) -> None:
 
                 to_push.append(i)
 
-            # TODO: push events to listeners
             for idx in to_push:
-                pass
+                event = events[idx]
+
+                # XXX(mwp): if this event has been cached before, and it's in
+                # to_push then it represents the next revision of the cached event
+                if event.uid in entry_uid_to_partial:
+                    rev_id = entry_uid_to_partial[event.uid].rev_id + 1
+                else:
+                    rev_id = 0
+
+                logging.info("pushing event id=%s to clients", event.uid)
+                await push_event(config, event, rev_id)
 
             updated_event_uids = frozenset(
                 map(lambda event: event.uid, map(lambda i: events[i], to_push))
