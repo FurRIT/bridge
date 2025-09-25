@@ -94,6 +94,10 @@ async def push_event(config: Config, event: Event, rev_id: int) -> None:
     """
 
     se_dict = event.to_dict()
+
+    # XXX(mwp): augment the raw event information with revision metadata
+    se_dict["rev_id"] = rev_id
+
     se_str = json.dumps(se_dict)
 
     se_bytes = se_str.encode("utf-8")
