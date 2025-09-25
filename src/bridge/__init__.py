@@ -98,16 +98,12 @@ def _hash_event(event: Event) -> bytes:
 _EXPECTED_PUSH_RESPONSES = frozenset([200, 201])
 
 
-async def push_event(config: Config, event: Event, rev_id: int) -> None:
+async def push_event(config: Config, event: Event) -> None:
     """
     Push an Event to all Clients.
     """
 
     se_dict = event.to_dict()
-
-    # XXX(mwp): augment the raw event information with revision metadata
-    se_dict["rev_id"] = rev_id
-
     se_str = json.dumps(se_dict)
 
     se_bytes = se_str.encode("utf-8")
@@ -193,15 +189,8 @@ async def fetch_push_events(ctx: AppContext, config: Config) -> None:
     for idx in to_push:
         event = events[idx]
 
-        # XXX(mwp): if this event has been cached before, and it's in
-        # to_push then it represents the next revision of the cached event
-        if event.uid in entry_uid_to_partial:
-            rev_id = entry_uid_to_partial[event.uid].rev_id + 1
-        else:
-            rev_id = 0
-
         logging.info("pushing event id=%s to clients", event.uid)
-        await push_event(config, event, rev_id)
+        await push_event(config, event)
 
     updated_event_uids = frozenset(
         map(lambda event: event.uid, map(lambda i: events[i], to_push))
