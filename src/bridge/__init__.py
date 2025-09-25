@@ -14,7 +14,7 @@ import playwright.async_api
 
 from bridge.config import ConfigParseError, Config, try_load_config
 from bridge.event import Event
-from bridge.site.auth import i_login, try_load_do_auth
+from bridge.site.auth import try_load_do_auth
 from bridge.site.event import i_extract_event_ids, i_extract_event
 
 
