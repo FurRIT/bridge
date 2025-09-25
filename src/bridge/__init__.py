@@ -5,6 +5,7 @@ Bridge to legacy server.
 from typing import Sequence
 import sys
 import json
+import base64
 import os.path
 import hashlib
 import logging
@@ -15,6 +16,7 @@ import textwrap
 import playwright.async_api
 
 from bridge.config import ConfigParseError, Config, try_load_config
+from bridge.cache import CacheEntry, load_cache, write_cache
 from bridge.event import Event
 from bridge.site.auth import try_load_do_auth
 from bridge.site.event import i_extract_event_ids, i_extract_event
@@ -42,8 +44,6 @@ async def fetch_events(config: Config) -> Sequence[Event]:
 
     raw_uids = await i_extract_event_ids(page, config.site.host)
     uids = frozenset(raw_uids)
-
-    logging.info("found event ids [%s]", ", ".join(iter(uids)))
 
     events = []
     for uid in uids:
@@ -88,7 +88,54 @@ async def run(config: Config) -> None:
     """
     Run Application.
     """
-    events = await fetch_events(config)
+    try:
+        while True:
+            events = await fetch_events(config)
+            hashes: list[str] = list(
+                map(
+                    lambda bytes: bytes.decode("utf-8"),
+                    map(base64.b64encode, map(_hash_event, events)),
+                )
+            )
+
+            entries = load_cache(config.cache)
+            entry_uid_to_hash = dict(
+                map(lambda entry: (entry.uid, entry.hash), entries)
+            )
+
+            to_push: list[int] = []
+
+            for i, event in enumerate(events):
+                if event.uid in entry_uid_to_hash:
+                    entry_hash = entry_uid_to_hash[event.uid]
+
+                    if entry_hash == hashes[i]:
+                        continue
+
+                to_push.append(i)
+
+            # TODO: push events to listeners
+            for idx in to_push:
+                pass
+
+            updated_event_uids = frozenset(
+                map(lambda event: event.uid, map(lambda i: events[i], to_push))
+            )
+
+            n_entries = []
+            n_entries.extend(
+                filter(lambda entry: entry.uid not in updated_event_uids, entries)
+            )
+            n_entries.extend(
+                map(lambda i: CacheEntry(events[i].uid, hashes[i]), to_push)
+            )
+
+            write_cache(config.cache, n_entries)
+
+            logging.info("awaiting next poll...")
+            await asyncio.sleep(config.frequency)
+    except KeyboardInterrupt:
+        pass
 
 
 def _error(msg: str) -> None:
