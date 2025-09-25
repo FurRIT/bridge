@@ -1,7 +1,10 @@
 host = "localhost"
 port = 8081
-cache = "events.cache"
-authcache = "auth.cache"
+
+cache = "events.cache"   # event cache
+authcache = "auth.cache" # authentication cache
+
+frequency = 30_000 # poll frequency in ms
 
 [site]
 host = ""     # host of the website

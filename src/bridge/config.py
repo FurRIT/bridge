@@ -49,6 +49,7 @@ class Config:
     port: int
     cache: str
     authcache: str
+    frequency: int
     site: SiteSection
     clients: list[ClientSection]
 
@@ -105,11 +106,13 @@ def try_load_config(path: str) -> Config:
     _require_attribute(raw, "port", int)
     _require_attribute(raw, "cache", str)
     _require_attribute(raw, "authcache", str)
+    _require_attribute(raw, "frequency", int)
 
     host = cast(str, raw["host"])
     port = cast(int, raw["port"])
     cache = cast(str, raw["cache"])
     authcache = cast(str, raw["authcache"])
+    frequency = cast(int, raw["frequency"])
 
     # XXX(mwp): resolve the cache path relative to the configuration file if it
     # is a relative path
@@ -134,4 +137,4 @@ def try_load_config(path: str) -> Config:
         section = _load_client_section(name, table)
         sections.append(section)
 
-    return Config(host, port, cache, authcache, site, sections)
+    return Config(host, port, cache, authcache, frequency, site, sections)
