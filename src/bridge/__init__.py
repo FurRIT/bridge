@@ -4,7 +4,9 @@ Bridge to legacy server.
 
 from typing import Sequence
 import sys
+import json
 import os.path
+import hashlib
 import logging
 import asyncio
 import argparse
@@ -64,6 +66,22 @@ async def fetch_events(config: Config) -> Sequence[Event]:
     await play.stop()
 
     return events
+
+
+def _hash_event(event: Event) -> bytes:
+    """
+    Hacky workaround to avoid implementing a __hash__ method for an Event.
+
+    Assumption: equivalent Events will produce the same json.dumps output; so
+    we hash the json.dumps output to get a unique hash.
+    """
+    se_dict = event.to_dict()
+    se_str = json.dumps(se_dict)
+
+    se_bytes = se_str.encode("utf-8")
+    hasher = hashlib.blake2b(se_bytes)
+
+    return hasher.digest()
 
 
 async def run(config: Config) -> None:
