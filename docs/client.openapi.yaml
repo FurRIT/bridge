@@ -1,0 +1,75 @@
+openapi: 3.0.4
+info:
+  title: Bridge Client
+  description: |-
+    Specification of a Bridge Client's interface.
+  version: 1.0.0
+paths:
+  /event:
+    post:
+      description: |-
+        Create a new Event or update an existing Event.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Event"
+      responses:
+        "200":
+          description: Event Updated Successfully
+        "201":
+          description: Event Created Successfully
+components:
+  schemas:
+    Organizer:
+      type: object
+      properties:
+        uid:
+          type: string
+        furname:
+          type: string
+          nullable: true
+        username:
+          type: string
+          nullable: true
+    Attendee:
+      type: object
+      properties:
+        aid:
+          type: string
+        uid:
+          type: string
+        furname:
+          type: string
+          nullable: true
+        username:
+          type: string
+          nullable: true
+    Event:
+      type: object
+      properties:
+        uid:
+          type: string
+        status:
+          type: string
+          enum: ["TENTATIVE", "CONFIRMED", "CANCELED"]
+        allday:
+          type: boolean
+        organizer:
+          $ref: "#/components/schemas/Organizer"
+        attendees:
+          type: array
+          items:
+            $ref: "#/components/schemas/Attendee"
+        summary:
+          type: string
+          nullable: true
+        description:
+          type: string
+          nullable: true
+        dtstart:
+          type: string
+          format: date-time
+        dtend:
+          type: string
+          format: date-time
