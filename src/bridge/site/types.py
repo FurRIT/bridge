@@ -104,6 +104,7 @@ class GetEventResponse(TypedDict):
     """
     Response to GET /events/id/{eventid}
     """
+
     success: bool
     data: RawEvent
     requestorHasUpdatePrivs: bool
