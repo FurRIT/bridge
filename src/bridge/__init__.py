@@ -17,6 +17,8 @@ from bridge.event import Event
 from bridge.site.auth import try_load_do_auth
 from bridge.site.event import i_extract_event_ids, i_extract_event
 
+logging.basicConfig(level=logging.INFO)
+
 
 async def fetch_events(config: Config) -> Sequence[Event]:
     """
@@ -25,6 +27,7 @@ async def fetch_events(config: Config) -> Sequence[Event]:
     play = await playwright.async_api.async_playwright().start()
     browser = await play.firefox.launch(headless=True)
 
+    logging.info("performing authentication with %s", config.site.host)
     context, page = await try_load_do_auth(
         browser,
         config.site.host,
@@ -33,16 +36,18 @@ async def fetch_events(config: Config) -> Sequence[Event]:
         config.site.password,
     )
 
-    logging.info("querying site for event ids")
+    logging.info("querying %s for event ids", config.site.host)
 
     raw_uids = await i_extract_event_ids(page, config.site.host)
     uids = frozenset(raw_uids)
 
-    logging.info("found event ids %s", uids)
+    logging.info("found event ids [%s]", ", ".join(iter(uids)))
 
     events = []
     for uid in uids:
+        logging.info("querying details of event id=%s", uid)
         get_event_resp = await i_extract_event(context, config.site.host, uid)
+
         if get_event_resp is None:
             logging.warning("encountered error querying details of event id=%s", uid)
             continue
