@@ -100,8 +100,6 @@ def try_load_config(path: str) -> Config:
         except tomllib.TOMLDecodeError as error:
             raise ConfigParseError("error occured during toml loading") from error
 
-    _require_attribute(raw, "host", str)
-    _require_attribute(raw, "port", int)
     _require_attribute(raw, "cache", str)
     _require_attribute(raw, "authcache", str)
     _require_attribute(raw, "frequency", int)
