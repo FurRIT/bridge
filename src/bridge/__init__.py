@@ -2,7 +2,7 @@
 Bridge to legacy server.
 """
 
-from typing import Sequence
+from typing import Sequence, NamedTuple
 import sys
 import json
 import base64
@@ -84,6 +84,15 @@ def _hash_event(event: Event) -> bytes:
     return hasher.digest()
 
 
+class _PartialCacheEntry(NamedTuple):
+    """
+    Partial Cache Entry; for indexing by uid.
+    """
+
+    hash: str
+    rev_id: int
+
+
 async def run(config: Config) -> None:
     """
     Run Application.
@@ -99,15 +108,21 @@ async def run(config: Config) -> None:
             )
 
             entries = load_cache(config.cache)
-            entry_uid_to_hash = dict(
-                map(lambda entry: (entry.uid, entry.hash), entries)
+            entry_uid_to_partial: dict[str, _PartialCacheEntry] = dict(
+                map(
+                    lambda entry: (
+                        entry.uid,
+                        _PartialCacheEntry(entry.hash, entry.rev_id),
+                    ),
+                    entries,
+                )
             )
 
             to_push: list[int] = []
 
             for i, event in enumerate(events):
-                if event.uid in entry_uid_to_hash:
-                    entry_hash = entry_uid_to_hash[event.uid]
+                if event.uid in entry_uid_to_partial:
+                    entry_hash = entry_uid_to_partial[event.uid].hash
 
                     if entry_hash == hashes[i]:
                         continue
@@ -122,13 +137,27 @@ async def run(config: Config) -> None:
                 map(lambda event: event.uid, map(lambda i: events[i], to_push))
             )
 
-            n_entries = []
+            def _derive_entry(i: int) -> CacheEntry:
+                """
+                Derive a CacheEntry from an Event.
+
+                If the Event is new create a new CacheEntry with rev_id = 0;
+                Otherwise, make an entry with a incremented rev_id.
+                """
+                event = events[i]
+                hash = hashes[i]
+
+                if event.uid not in entry_uid_to_partial:
+                    return CacheEntry(event.uid, hash, 0)
+
+                existing = entry_uid_to_partial[event.uid]
+                return CacheEntry(event.uid, hash, existing.rev_id + 1)
+
+            n_entries: list[CacheEntry] = []
             n_entries.extend(
                 filter(lambda entry: entry.uid not in updated_event_uids, entries)
             )
-            n_entries.extend(
-                map(lambda i: CacheEntry(events[i].uid, hashes[i]), to_push)
-            )
+            n_entries.extend(map(_derive_entry, to_push))
 
             write_cache(config.cache, n_entries)
 

@@ -19,6 +19,7 @@ class CacheEntry:
 
     uid: str
     hash: str
+    rev_id: int
 
 
 def load_cache(path: str) -> Sequence[CacheEntry]:
@@ -39,8 +40,13 @@ def load_cache(path: str) -> Sequence[CacheEntry]:
     for item in raw:
         assert "uid" in item and isinstance(item["uid"], str)
         assert "hash" in item and isinstance(item["hash"], str)
+        assert "rev_id" in item and isinstance(item["rev_id"], int)
 
-        entry = CacheEntry(item["uid"], item["hash"])
+        uid: str = item["uid"]
+        hash: str = item["hash"]
+        rev_id: int = item["rev_id"]
+
+        entry = CacheEntry(uid, hash, rev_id)
         entries.append(entry)
 
     return entries
