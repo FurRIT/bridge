@@ -45,8 +45,6 @@ class Config:
     Application Configuration.
     """
 
-    host: str
-    port: int
     cache: str
     authcache: str
     frequency: int
@@ -108,8 +106,6 @@ def try_load_config(path: str) -> Config:
     _require_attribute(raw, "authcache", str)
     _require_attribute(raw, "frequency", int)
 
-    host = cast(str, raw["host"])
-    port = cast(int, raw["port"])
     cache = cast(str, raw["cache"])
     authcache = cast(str, raw["authcache"])
     frequency = cast(int, raw["frequency"])
@@ -137,4 +133,4 @@ def try_load_config(path: str) -> Config:
         section = _load_client_section(name, table)
         sections.append(section)
 
-    return Config(host, port, cache, authcache, frequency, site, sections)
+    return Config(cache, authcache, frequency, site, sections)
