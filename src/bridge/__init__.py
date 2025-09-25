@@ -137,82 +137,90 @@ class _PartialCacheEntry(NamedTuple):
     rev_id: int
 
 
+async def fetch_push_events(config: Config) -> None:
+    """
+    Run fetch_events then push_event for each one.
+
+    Updates the Cache with seen events.
+    """
+
+    events = await fetch_events(config)
+    hashes: list[str] = list(
+        map(
+            lambda bytes: bytes.decode("utf-8"),
+            map(base64.b64encode, map(_hash_event, events)),
+        )
+    )
+
+    entries = load_cache(config.cache)
+    entry_uid_to_partial: dict[str, _PartialCacheEntry] = dict(
+        map(
+            lambda entry: (
+                entry.uid,
+                _PartialCacheEntry(entry.hash, entry.rev_id),
+            ),
+            entries,
+        )
+    )
+
+    to_push: list[int] = []
+
+    for i, event in enumerate(events):
+        if event.uid in entry_uid_to_partial:
+            entry_hash = entry_uid_to_partial[event.uid].hash
+
+            if entry_hash == hashes[i]:
+                continue
+
+        to_push.append(i)
+
+    for idx in to_push:
+        event = events[idx]
+
+        # XXX(mwp): if this event has been cached before, and it's in
+        # to_push then it represents the next revision of the cached event
+        if event.uid in entry_uid_to_partial:
+            rev_id = entry_uid_to_partial[event.uid].rev_id + 1
+        else:
+            rev_id = 0
+
+        logging.info("pushing event id=%s to clients", event.uid)
+        await push_event(config, event, rev_id)
+
+    updated_event_uids = frozenset(
+        map(lambda event: event.uid, map(lambda i: events[i], to_push))
+    )
+
+    def _derive_entry(i: int) -> CacheEntry:
+        """
+        Derive a CacheEntry from an Event.
+
+        If the Event is new create a new CacheEntry with rev_id = 0;
+        Otherwise, make an entry with a incremented rev_id.
+        """
+        event = events[i]
+        ehash = hashes[i]
+
+        if event.uid not in entry_uid_to_partial:
+            return CacheEntry(event.uid, ehash, 0)
+
+        existing = entry_uid_to_partial[event.uid]
+        return CacheEntry(event.uid, ehash, existing.rev_id + 1)
+
+    n_entries: list[CacheEntry] = []
+    n_entries.extend(filter(lambda entry: entry.uid not in updated_event_uids, entries))
+    n_entries.extend(map(_derive_entry, to_push))
+
+    write_cache(config.cache, n_entries)
+
+
 async def run(config: Config) -> None:
     """
     Run Application.
     """
     try:
         while True:
-            events = await fetch_events(config)
-            hashes: list[str] = list(
-                map(
-                    lambda bytes: bytes.decode("utf-8"),
-                    map(base64.b64encode, map(_hash_event, events)),
-                )
-            )
-
-            entries = load_cache(config.cache)
-            entry_uid_to_partial: dict[str, _PartialCacheEntry] = dict(
-                map(
-                    lambda entry: (
-                        entry.uid,
-                        _PartialCacheEntry(entry.hash, entry.rev_id),
-                    ),
-                    entries,
-                )
-            )
-
-            to_push: list[int] = []
-
-            for i, event in enumerate(events):
-                if event.uid in entry_uid_to_partial:
-                    entry_hash = entry_uid_to_partial[event.uid].hash
-
-                    if entry_hash == hashes[i]:
-                        continue
-
-                to_push.append(i)
-
-            for idx in to_push:
-                event = events[idx]
-
-                # XXX(mwp): if this event has been cached before, and it's in
-                # to_push then it represents the next revision of the cached event
-                if event.uid in entry_uid_to_partial:
-                    rev_id = entry_uid_to_partial[event.uid].rev_id + 1
-                else:
-                    rev_id = 0
-
-                logging.info("pushing event id=%s to clients", event.uid)
-                await push_event(config, event, rev_id)
-
-            updated_event_uids = frozenset(
-                map(lambda event: event.uid, map(lambda i: events[i], to_push))
-            )
-
-            def _derive_entry(i: int) -> CacheEntry:
-                """
-                Derive a CacheEntry from an Event.
-
-                If the Event is new create a new CacheEntry with rev_id = 0;
-                Otherwise, make an entry with a incremented rev_id.
-                """
-                event = events[i]
-                hash = hashes[i]
-
-                if event.uid not in entry_uid_to_partial:
-                    return CacheEntry(event.uid, hash, 0)
-
-                existing = entry_uid_to_partial[event.uid]
-                return CacheEntry(event.uid, hash, existing.rev_id + 1)
-
-            n_entries: list[CacheEntry] = []
-            n_entries.extend(
-                filter(lambda entry: entry.uid not in updated_event_uids, entries)
-            )
-            n_entries.extend(map(_derive_entry, to_push))
-
-            write_cache(config.cache, n_entries)
+            await fetch_push_events(config)
 
             logging.info("awaiting next poll...")
             await asyncio.sleep(config.frequency)
