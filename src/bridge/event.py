@@ -126,6 +126,7 @@ class Event:
     allday:      `.allday`
     organizer:   `.organizer` (see Organizer)
     attendees:   `.attendees` (see Attendee)
+    location:    `.location`
     summary:     `.summery`
     description: `.description`
     dtstart:     `.dtstart`
@@ -138,6 +139,7 @@ class Event:
     organizer: Organizer
     attendees: list[Attendee]
     summary: str | None
+    location: str | None
     description: str | None
     dtstart: datetime.datetime
     dtend: datetime.datetime
@@ -164,6 +166,7 @@ class Event:
         aliased = cast(dict[str, Any], raw_event)
 
         summary = _get_nonempty_string(aliased, "summery")
+        location = _get_nonempty_string(aliased, "location")
         description = _get_nonempty_string(aliased, "description")
 
         if summary is not None:
@@ -188,6 +191,7 @@ class Event:
             organizer,
             attendees,
             summary,
+            location,
             description,
             dtstart,
             dtend,

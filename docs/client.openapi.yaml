@@ -67,6 +67,9 @@ components:
         summary:
           type: string
           nullable: true
+        location:
+          type: string
+          nullable: true
         description:
           type: string
           nullable: true
