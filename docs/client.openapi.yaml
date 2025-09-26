@@ -45,6 +45,9 @@ components:
         username:
           type: string
           nullable: true
+        status:
+          type: string
+          enum: ["ACCEPTED", "TENTATIVE", "DECLINED"]
     Event:
       type: object
       properties:
