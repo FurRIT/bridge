@@ -3,13 +3,12 @@ Server Handlers.
 """
 
 from typing import TypeAlias, TypedDict, Literal, cast
-import json
-import logging
 
 import aiohttp
 import aiohttp.web
 
 from bridge.types import AppContext
+from bridge.site.auth import try_load_do_auth
 
 routes = aiohttp.web.RouteTableDef()
 
@@ -58,12 +57,22 @@ async def post_event_rsvp(request: aiohttp.web.Request):
     ctx = cast(AppContext, request.app["ctx"])
     await ctx.cache_lock.acquire()
 
+    await try_load_do_auth(
+        ctx.config.site.host,
+        ctx.config.authcache,
+        ctx.config.site.username,
+        ctx.config.site.password,
+        context=ctx.persist.context,
+        page=ctx.persist.page,
+    )
+    await ctx.persist.context.storage_state(path=ctx.config.authcache)
+
     body = await request.json()
     raw = cast(RawRsvpRequest, body)
 
     eid = request.match_info["id"]
 
-    url = f"https://{ctx.site_host}/events/partstat/{eid}"
+    url = f"https://{ctx.config.site.host}/events/partstat/{eid}"
     legacy: LegacyRsvpRequest = {
         "partstat": _REQUEST_STATUS_TO_PARTSTAT[raw["status"]],
         "telegramId": raw["telegram_id"],

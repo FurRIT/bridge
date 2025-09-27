@@ -19,7 +19,7 @@ import apscheduler.schedulers.asyncio  # type: ignore
 from bridge.config import ConfigParseError, Config, try_load_config
 from bridge.cache import CacheEntry, load_cache, write_cache
 from bridge.event import Event, hash_event
-from bridge.types import AppContext
+from bridge.types import AppContext, PlayPersist
 from bridge.server import routes
 from bridge.client import push_event_to_clients
 from bridge.site.auth import try_load_do_auth
@@ -45,23 +45,18 @@ async def fetch_push_events(ctx: AppContext, config: Config) -> None:
     """
 
     await ctx.cache_lock.acquire()
-
-    play = await playwright.async_api.async_playwright().start()
-    browser = await play.firefox.launch(headless=True)
-
-    context, page = await try_load_do_auth(
+    await try_load_do_auth(
         config.site.host,
         config.authcache,
         config.site.username,
         config.site.password,
-        browser=browser,
+        context=ctx.persist.context,
+        page=ctx.persist.page,
     )
-    raw_events = await i_fetch_extract_events(context, page, config.site.host)
-
-    await page.close()
-    await context.storage_state(path=config.authcache)
-    await context.close()
-    await play.stop()
+    await ctx.persist.context.storage_state(path=config.authcache)
+    raw_events = await i_fetch_extract_events(
+        ctx.persist.context, ctx.persist.page, config.site.host
+    )
 
     events = list(map(Event.from_raw_event, raw_events))
 
@@ -132,7 +127,20 @@ async def run(config: Config) -> None:
     """
     Run Application.
     """
-    ctx = AppContext(config.site.host)
+    play = await playwright.async_api.async_playwright().start()
+    browser = await play.firefox.launch(headless=True)
+
+    context, page = await try_load_do_auth(
+        config.site.host,
+        config.authcache,
+        config.site.username,
+        config.site.password,
+        browser=browser,
+    )
+
+    persist = PlayPersist(play, browser, context, page)
+    ctx = AppContext(config, persist)
+
     scheduler = apscheduler.schedulers.asyncio.AsyncIOScheduler()
 
     scheduler.add_job(
