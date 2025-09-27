@@ -23,6 +23,8 @@ paths:
       responses:
         "200":
           description: RSVP Registered Successfully
+        "500":
+          description: Some other error
 components:
   schemas:
     RsvpRequest:
