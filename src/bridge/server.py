@@ -3,12 +3,18 @@ Server Handlers.
 """
 
 from typing import TypeAlias, TypedDict, Literal, cast
+import asyncio
+import logging
 
 import aiohttp
 import aiohttp.web
 
+from bridge.event import Event, hash_event
 from bridge.types import AppContext
+from bridge.cache import load_cache
+from bridge.client import push_event_to_clients
 from bridge.site.auth import try_load_do_auth
+from bridge.site.event import i_extract_event
 
 routes = aiohttp.web.RouteTableDef()
 
@@ -49,13 +55,11 @@ _REQUEST_STATUS_TO_PARTSTAT: dict[RsvpRequestStatus, LegacyPartstat] = {
 }
 
 
-@routes.post("/event/{id}/rsvp")
-async def post_event_rsvp(request: aiohttp.web.Request):
+async def _update_clients(ctx: AppContext, eid: str) -> None:
     """
-    Accept and forward an RSVP.
+    Background Task to update clients with new event information.
     """
-    ctx = cast(AppContext, request.app["ctx"])
-    await ctx.cache_lock.acquire()
+    logging.info("bgupd event id=%s | authentication", eid)
 
     await try_load_do_auth(
         ctx.config.site.host,
@@ -66,6 +70,47 @@ async def post_event_rsvp(request: aiohttp.web.Request):
         page=ctx.persist.page,
     )
     await ctx.persist.context.storage_state(path=ctx.config.authcache)
+    await asyncio.sleep(0.10)
+
+    logging.info("bgupd event id=%s | extraction", eid)
+    raw_event_r = await i_extract_event(ctx.persist.context, ctx.config.site.host, eid)
+
+    if raw_event_r is None:
+        logging.info("bgupd event id=%s | extraction failed!", eid)
+
+        ctx.cache_lock.release()
+        return
+
+    event = Event.from_raw_event(raw_event_r["data"])
+
+    found = None
+    entries = load_cache(ctx.config.cache)
+    for entry in entries:
+        if entry.uid == event.uid:
+            found = entry
+            break
+
+    assert found is not None
+    hashed = hash_event(event).decode("utf-8")
+
+    if found.hash == hashed:
+        logging.info("bgupd event id=%s | no difference", eid)
+
+        ctx.cache_lock.release()
+        return
+
+    logging.info("bgupd event id=%s | pushing", eid)
+    await push_event_to_clients(ctx.config, event)
+    ctx.cache_lock.release()
+
+
+@routes.post("/event/{id}/rsvp")
+async def post_event_rsvp(request: aiohttp.web.Request):
+    """
+    Accept and forward an RSVP.
+    """
+    ctx = cast(AppContext, request.app["ctx"])
+    await ctx.cache_lock.acquire()
 
     body = await request.json()
     raw = cast(RawRsvpRequest, body)
@@ -86,7 +131,9 @@ async def post_event_rsvp(request: aiohttp.web.Request):
     async with session.post(url, json=legacy) as response:
         ok = response.ok
 
-    ctx.cache_lock.release()
+    # XXX(mwp): create a background task to fetch the updated event and push it
+    # to clients
+    asyncio.create_task(_update_clients(ctx, eid))
     await session.close()
 
     if ok:
