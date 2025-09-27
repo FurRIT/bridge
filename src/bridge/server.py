@@ -3,6 +3,7 @@ Server Handlers.
 """
 
 from typing import TypeAlias, TypedDict, Literal, cast
+import base64
 import asyncio
 import logging
 
@@ -61,47 +62,45 @@ async def _update_clients(ctx: AppContext, eid: str) -> None:
     """
     logging.info("bgupd event id=%s | authentication", eid)
 
-    await try_load_do_auth(
-        ctx.config.site.host,
-        ctx.config.authcache,
-        ctx.config.site.username,
-        ctx.config.site.password,
-        context=ctx.persist.context,
-        page=ctx.persist.page,
-    )
-    await ctx.persist.context.storage_state(path=ctx.config.authcache)
-    await asyncio.sleep(0.10)
+    async with ctx.play_lock:
+        await try_load_do_auth(
+            ctx.config.site.host,
+            ctx.config.authcache,
+            ctx.config.site.username,
+            ctx.config.site.password,
+            context=ctx.persist.context,
+            page=ctx.persist.page,
+        )
+        await ctx.persist.context.storage_state(path=ctx.config.authcache)
 
-    logging.info("bgupd event id=%s | extraction", eid)
-    raw_event_r = await i_extract_event(ctx.persist.context, ctx.config.site.host, eid)
+        logging.info("bgupd event id=%s | extraction", eid)
+        raw_event_r = await i_extract_event(
+            ctx.persist.context, ctx.config.site.host, eid
+        )
 
     if raw_event_r is None:
         logging.info("bgupd event id=%s | extraction failed!", eid)
-
-        ctx.cache_lock.release()
         return
 
     event = Event.from_raw_event(raw_event_r["data"])
 
-    found = None
-    entries = load_cache(ctx.config.cache)
-    for entry in entries:
-        if entry.uid == event.uid:
-            found = entry
-            break
+    async with ctx.cache_lock:
+        found = None
+        entries = load_cache(ctx.config.cache)
+        for entry in entries:
+            if entry.uid == event.uid:
+                found = entry
+                break
 
-    assert found is not None
-    hashed = hash_event(event).decode("utf-8")
+        assert found is not None
 
+    hashed = base64.b64encode(hash_event(event)).decode("utf-8")
     if found.hash == hashed:
         logging.info("bgupd event id=%s | no difference", eid)
-
-        ctx.cache_lock.release()
         return
 
     logging.info("bgupd event id=%s | pushing", eid)
     await push_event_to_clients(ctx.config, event)
-    ctx.cache_lock.release()
 
 
 @routes.post("/event/{id}/rsvp")
@@ -110,7 +109,6 @@ async def post_event_rsvp(request: aiohttp.web.Request):
     Accept and forward an RSVP.
     """
     ctx = cast(AppContext, request.app["ctx"])
-    await ctx.cache_lock.acquire()
 
     body = await request.json()
     raw = cast(RawRsvpRequest, body)

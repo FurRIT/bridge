@@ -30,4 +30,5 @@ class AppContext:
 
     config: Config
     persist: PlayPersist
+    play_lock: asyncio.Lock = dataclasses.field(default_factory=asyncio.Lock)
     cache_lock: asyncio.Lock = dataclasses.field(default_factory=asyncio.Lock)
