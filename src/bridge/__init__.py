@@ -2,7 +2,7 @@
 Bridge to legacy server.
 """
 
-from typing import Sequence, NamedTuple
+from typing import NamedTuple
 import sys
 import json
 import base64
@@ -23,53 +23,9 @@ from bridge.cache import CacheEntry, load_cache, write_cache
 from bridge.event import Event
 from bridge.types import AppContext
 from bridge.site.auth import try_load_do_auth
-from bridge.site.event import i_extract_event_ids, i_extract_event
+from bridge.site.event import i_fetch_extract_events
 
 logging.basicConfig(level=logging.INFO)
-
-
-async def fetch_events(config: Config) -> Sequence[Event]:
-    """
-    Fetch Events from `site.host`.
-    """
-    play = await playwright.async_api.async_playwright().start()
-    browser = await play.firefox.launch(headless=True)
-
-    logging.info("performing authentication with %s", config.site.host)
-    context, page = await try_load_do_auth(
-        browser,
-        config.site.host,
-        config.authcache,
-        config.site.username,
-        config.site.password,
-    )
-
-    logging.info("querying %s for event ids", config.site.host)
-
-    raw_uids = await i_extract_event_ids(page, config.site.host)
-    uids = frozenset(raw_uids)
-
-    events = []
-    for uid in uids:
-        logging.info("querying details of event id=%s", uid)
-        get_event_resp = await i_extract_event(context, config.site.host, uid)
-
-        if get_event_resp is None:
-            logging.warning("encountered error querying details of event id=%s", uid)
-            continue
-
-        event = Event.from_raw_event(get_event_resp["data"])
-        events.append(event)
-
-    await page.close()
-
-    await context.storage_state(path=config.authcache)
-    await context.close()
-
-    await browser.close()
-    await play.stop()
-
-    return events
 
 
 def _hash_event(event: Event) -> bytes:
@@ -149,7 +105,25 @@ async def fetch_push_events(ctx: AppContext, config: Config) -> None:
 
     await ctx.cache_lock.acquire()
 
-    events = await fetch_events(config)
+    play = await playwright.async_api.async_playwright().start()
+    browser = await play.firefox.launch(headless=True)
+
+    context, page = await try_load_do_auth(
+        browser,
+        config.site.host,
+        config.authcache,
+        config.site.username,
+        config.site.password,
+    )
+    raw_events = await i_fetch_extract_events(context, page, config.site.host)
+
+    await page.close()
+    await context.storage_state(path=config.authcache)
+    await context.close()
+    await play.stop()
+
+    events = list(map(Event.from_raw_event, raw_events))
+
     hashes: list[str] = list(
         map(
             lambda bytes: bytes.decode("utf-8"),

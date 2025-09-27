@@ -2,12 +2,13 @@
 Event Scraping/Fetching Utilities.
 """
 
-from typing import cast
+from typing import Sequence, cast
 import re
+import logging
 
 import playwright.async_api
 
-from bridge.site.types import GetEventResponse
+from bridge.site.types import GetEventResponse, RawEvent
 
 _ONCLICK_PATTERN = re.compile(
     r"window\.location\.assign\('\/events\/id\/([a-zA-Z0-9]+)'\);",
@@ -61,3 +62,32 @@ async def i_extract_event(
     typed = cast(GetEventResponse, body)
 
     return typed
+
+
+async def i_fetch_extract_events(
+    context: playwright.async_api.BrowserContext,
+    page: playwright.async_api.Page,
+    host: str,
+) -> Sequence[RawEvent]:
+    """
+    Fetch RawEvents from remote host.
+
+    Extract Event identifiers, then query the details of each event identifier.
+    """
+    logging.info("querying %s for event ids", host)
+
+    raw_uids = await i_extract_event_ids(page, host)
+    uids = frozenset(raw_uids)
+
+    events = []
+    for uid in uids:
+        logging.info("querying details of event id=%s", uid)
+        get_event_resp = await i_extract_event(context, host, uid)
+
+        if get_event_resp is None:
+            logging.warning("encountered error querying details of event id=%s", uid)
+            continue
+
+        events.append(get_event_resp["data"])
+
+    return events
