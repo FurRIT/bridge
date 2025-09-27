@@ -53,10 +53,7 @@ async def push_event(config: Config, event: Event) -> None:
     Push an Event to all Clients.
     """
 
-    se_dict = event.to_dict()
-    se_str = json.dumps(se_dict)
-
-    se_bytes = se_str.encode("utf-8")
+    se = event.to_dict()
     session = aiohttp.ClientSession()
 
     for client in config.clients:
@@ -66,7 +63,7 @@ async def push_event(config: Config, event: Event) -> None:
         hoisted: aiohttp.ClientResponse | None = None
 
         try:
-            async with session.post(url, data=se_bytes, headers=headers) as response:
+            async with session.post(url, json=se, headers=headers) as response:
                 hoisted = response
         except aiohttp.ClientConnectionError:
             logging.error("could not connect to client %s", client.name)
