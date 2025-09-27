@@ -4,6 +4,7 @@ Server Handlers.
 
 from typing import TypeAlias, TypedDict, Literal, cast
 import json
+import logging
 
 import aiohttp
 import aiohttp.web
@@ -60,6 +61,9 @@ async def post_event_rsvp(request: aiohttp.web.Request):
     body = await request.json()
     raw = cast(RawRsvpRequest, body)
 
+    eid = request.match_info["id"]
+
+    url = f"https://{ctx.site_host}/events/partstat/{eid}"
     legacy: LegacyRsvpRequest = {
         "partstat": _REQUEST_STATUS_TO_PARTSTAT[raw["status"]],
         "telegramId": raw["telegram_id"],
@@ -67,18 +71,15 @@ async def post_event_rsvp(request: aiohttp.web.Request):
         "telegramName": raw["telegram_name"],
     }
 
-    se_str = json.dumps(legacy)
-    se_bytes = se_str.encode("utf-8")
-
     session = aiohttp.ClientSession()
-    eid = request.match_info["id"]
 
-    url = f"http://{ctx.site_host}/partstat/{eid}"
-    headers = {"Content-Type": "application/json"}
+    ok = False
+    async with session.post(url, json=legacy) as response:
+        ok = response.ok
 
-    async with session.post(url, data=se_bytes, headers=headers) as response:
-        ctx.cache_lock.release()
+    ctx.cache_lock.release()
+    await session.close()
 
-        if response.ok:
-            return aiohttp.web.Response(status=200)
-        return aiohttp.web.Response(status=500)
+    if ok:
+        return aiohttp.web.Response(status=200)
+    return aiohttp.web.Response(status=500)
