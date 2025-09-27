@@ -40,6 +40,16 @@ class SiteSection:
 
 
 @dataclasses.dataclass(frozen=True)
+class ApiSection:
+    """
+    A `api` section.
+    """
+
+    host: str
+    port: int
+
+
+@dataclasses.dataclass(frozen=True)
 class Config:
     """
     Application Configuration.
@@ -48,6 +58,7 @@ class Config:
     cache: str
     authcache: str
     frequency: int
+    api: ApiSection
     site: SiteSection
     clients: list[ClientSection]
 
@@ -75,6 +86,16 @@ def _load_site_section(table: dict[str, Any]) -> SiteSection:
     password: str = table["password"]
 
     return SiteSection(host, username, password)
+
+
+def _load_api_section(table: dict[str, Any]) -> ApiSection:
+    _require_attribute(table, "host", str, prefix=f"api")
+    _require_attribute(table, "port", int, prefix=f"api")
+
+    host: str = table["host"]
+    port: int = table["port"]
+
+    return ApiSection(host, port)
 
 
 def _load_client_section(name: str, table: dict[str, Any]) -> ClientSection:
@@ -118,6 +139,9 @@ def try_load_config(path: str) -> Config:
 
     site = _load_site_section(raw["site"])
 
+    _require_attribute(raw, "api", dict)
+    api = _load_api_section(raw["api"])
+
     if ("client" in raw) and (not isinstance(raw["client"], dict)):
         raise ConfigParseError(".client must be a dict")
 
@@ -131,4 +155,4 @@ def try_load_config(path: str) -> Config:
         section = _load_client_section(name, table)
         sections.append(section)
 
-    return Config(cache, authcache, frequency, site, sections)
+    return Config(cache, authcache, frequency, api, site, sections)

@@ -3,6 +3,10 @@ authcache = "auth.cache" # authentication cache
 
 frequency = 30 # poll frequency in s
 
+[api]
+host = "localhost"
+port = 8081
+
 [site]
 host = ""     # host of the website
 username = "" # website username
