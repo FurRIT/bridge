@@ -215,7 +215,7 @@ async def run(config: Config) -> None:
     """
     Run Application.
     """
-    ctx = AppContext()
+    ctx = AppContext(config.site.host)
 
     try:
         while True:
