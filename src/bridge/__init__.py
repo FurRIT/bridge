@@ -12,7 +12,6 @@ import logging
 import asyncio
 import argparse
 import textwrap
-import dataclasses
 
 import aiohttp
 import playwright.async_api
@@ -20,19 +19,11 @@ import playwright.async_api
 from bridge.config import ConfigParseError, Config, try_load_config
 from bridge.cache import CacheEntry, load_cache, write_cache
 from bridge.event import Event
+from bridge.types import AppContext
 from bridge.site.auth import try_load_do_auth
 from bridge.site.event import i_extract_event_ids, i_extract_event
 
 logging.basicConfig(level=logging.INFO)
-
-
-@dataclasses.dataclass(frozen=True)
-class AppContext:
-    """
-    App Synchronization Context.
-    """
-
-    cache_lock: asyncio.Lock = dataclasses.field(default_factory=asyncio.Lock)
 
 
 async def fetch_events(config: Config) -> Sequence[Event]:
