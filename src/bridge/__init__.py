@@ -23,6 +23,7 @@ from bridge.cache import CacheEntry, load_cache, write_cache
 from bridge.event import Event
 from bridge.types import AppContext
 from bridge.server import routes
+from bridge.client import push_event_to_clients
 from bridge.site.auth import try_load_do_auth
 from bridge.site.event import i_fetch_extract_events
 
@@ -43,46 +44,6 @@ def _hash_event(event: Event) -> bytes:
     hasher = hashlib.blake2b(se_bytes)
 
     return hasher.digest()
-
-
-_EXPECTED_PUSH_RESPONSES = frozenset([200, 201])
-
-
-async def push_event(config: Config, event: Event) -> None:
-    """
-    Push an Event to all Clients.
-    """
-
-    se = event.to_dict()
-    session = aiohttp.ClientSession()
-
-    for client in config.clients:
-        url = f"http://{client.host}:{client.port}/event"
-        headers = {"Content-Type": "application/json"}
-
-        hoisted: aiohttp.ClientResponse | None = None
-
-        try:
-            async with session.post(url, json=se, headers=headers) as response:
-                hoisted = response
-        except aiohttp.ClientConnectionError:
-            logging.error("could not connect to client %s", client.name)
-            continue
-
-        if hoisted.status not in _EXPECTED_PUSH_RESPONSES:
-            logging.error(
-                "received unexpected response status=%s from client %s",
-                hoisted.status,
-                client.name,
-            )
-            continue
-
-        if hoisted.status == 200:
-            logging.info("client %s created new event id=%s", client.name, event.uid)
-        else:
-            logging.info("client %s updated event id=%s", client.name, event.uid)
-
-    await session.close()
 
 
 class _PartialCacheEntry(NamedTuple):
@@ -155,7 +116,7 @@ async def fetch_push_events(ctx: AppContext, config: Config) -> None:
         event = events[idx]
 
         logging.info("pushing event id=%s to clients", event.uid)
-        await push_event(config, event)
+        await push_event_to_clients(config, event)
 
     updated_event_uids = frozenset(
         map(lambda event: event.uid, map(lambda i: events[i], to_push))
