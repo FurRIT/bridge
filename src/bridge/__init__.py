@@ -15,6 +15,8 @@ import textwrap
 
 import aiohttp
 import playwright.async_api
+import apscheduler.triggers.interval  # type: ignore
+import apscheduler.schedulers.asyncio  # type: ignore
 
 from bridge.config import ConfigParseError, Config, try_load_config
 from bridge.cache import CacheEntry, load_cache, write_cache
@@ -216,15 +218,16 @@ async def run(config: Config) -> None:
     Run Application.
     """
     ctx = AppContext(config.site.host)
+    scheduler = apscheduler.schedulers.asyncio.AsyncIOScheduler()
 
-    try:
-        while True:
-            await fetch_push_events(ctx, config)
+    scheduler.add_job(
+        fetch_push_events,
+        apscheduler.triggers.interval.IntervalTrigger(seconds=config.frequency),
+        args=[ctx, config],
+    )
 
-            logging.info("awaiting next poll...")
-            await asyncio.sleep(config.frequency)
-    except KeyboardInterrupt:
-        pass
+    scheduler.start()
+    await asyncio.Future()
 
 
 def _error(msg: str) -> None:
