@@ -89,8 +89,8 @@ def _load_site_section(table: dict[str, Any]) -> SiteSection:
 
 
 def _load_api_section(table: dict[str, Any]) -> ApiSection:
-    _require_attribute(table, "host", str, prefix=f"api")
-    _require_attribute(table, "port", int, prefix=f"api")
+    _require_attribute(table, "host", str, prefix="api")
+    _require_attribute(table, "port", int, prefix="api")
 
     host: str = table["host"]
     port: int = table["port"]
