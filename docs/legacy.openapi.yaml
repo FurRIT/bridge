@@ -1,0 +1,39 @@
+openapi: 3.0.4
+info:
+  title: Legacy Server API
+  description: |-
+    Subset of the Legacy Server's interface.
+  version: 1.0.0
+paths:
+  /partstat/{eventId}:
+    post:
+      description: |-
+        Create a new Event or update an existing Event.
+      parameters:
+        - in: path
+          name: eventId
+          schema:
+            type: string
+          required: true
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LegacyRsvpRequest"
+      responses:
+        "200":
+          description: RSVP Registered Successfully
+components:
+  schemas:
+    LegacyRsvpRequest:
+      type: object
+      properties:
+        partstat:
+          type: string
+          enum: ["ACCEPTED", "TENTATIVE", "DECLINED"]
+        telegramId:
+          type: integer
+        telegramUsername:
+          type: string
+        telegramName:
+          type: string

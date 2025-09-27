@@ -1,0 +1,40 @@
+openapi: 3.0.4
+info:
+  title: Bridge Server
+  description: |-
+    Specification of a Bridge Server's interface.
+  version: 1.0.0
+paths:
+  /event/{id}/rsvp:
+    post:
+      description: |-
+        Create a new Event or update an existing Event.
+      parameters:
+        - in: path
+          name: id
+          schema:
+            type: string
+          required: true
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RsvpRequest"
+      responses:
+        "200":
+          description: RSVP Registered Successfully
+components:
+  schemas:
+    RsvpRequest:
+      type: object
+      properties:
+        telegram_id:
+          type: integer
+        telegram_username:
+          type: string
+        telegram_name:
+          type: string
+        status:
+          type: integer
+          # 0 = accepted, 1 = tentative, 2 = declined
+          enum: [0, 1, 2]
