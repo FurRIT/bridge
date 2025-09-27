@@ -20,7 +20,7 @@ import apscheduler.schedulers.asyncio  # type: ignore
 
 from bridge.config import ConfigParseError, Config, try_load_config
 from bridge.cache import CacheEntry, load_cache, write_cache
-from bridge.event import Event
+from bridge.event import Event, hash_event
 from bridge.types import AppContext
 from bridge.server import routes
 from bridge.client import push_event_to_clients
@@ -28,22 +28,6 @@ from bridge.site.auth import try_load_do_auth
 from bridge.site.event import i_fetch_extract_events
 
 logging.basicConfig(level=logging.INFO)
-
-
-def _hash_event(event: Event) -> bytes:
-    """
-    Hacky workaround to avoid implementing a __hash__ method for an Event.
-
-    Assumption: equivalent Events will produce the same json.dumps output; so
-    we hash the json.dumps output to get a unique hash.
-    """
-    se_dict = event.to_dict()
-    se_str = json.dumps(se_dict)
-
-    se_bytes = se_str.encode("utf-8")
-    hasher = hashlib.blake2b(se_bytes)
-
-    return hasher.digest()
 
 
 class _PartialCacheEntry(NamedTuple):
@@ -86,7 +70,7 @@ async def fetch_push_events(ctx: AppContext, config: Config) -> None:
     hashes: list[str] = list(
         map(
             lambda bytes: bytes.decode("utf-8"),
-            map(base64.b64encode, map(_hash_event, events)),
+            map(base64.b64encode, map(hash_event, events)),
         )
     )
 

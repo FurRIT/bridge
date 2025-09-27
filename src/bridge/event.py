@@ -5,6 +5,8 @@ Event Handling.
 from __future__ import annotations
 from typing import Any, cast
 import enum
+import json
+import hashlib
 import datetime
 import dataclasses
 
@@ -213,3 +215,19 @@ class Event:
         base["dtend"] = base["dtend"].isoformat()
 
         return base
+
+
+def hash_event(event: Event) -> bytes:
+    """
+    Hacky workaround to avoid implementing a __hash__ method for an Event.
+
+    Assumption: equivalent Events will produce the same json.dumps output; so
+    we hash the json.dumps output to get a unique hash.
+    """
+    se_dict = event.to_dict()
+    se_str = json.dumps(se_dict)
+
+    se_bytes = se_str.encode("utf-8")
+    hasher = hashlib.blake2b(se_bytes)
+
+    return hasher.digest()
