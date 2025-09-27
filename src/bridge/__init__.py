@@ -4,10 +4,8 @@ Bridge to legacy server.
 
 from typing import NamedTuple
 import sys
-import json
 import base64
 import os.path
-import hashlib
 import logging
 import asyncio
 import argparse
