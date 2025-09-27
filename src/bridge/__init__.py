@@ -50,11 +50,11 @@ async def fetch_push_events(ctx: AppContext, config: Config) -> None:
     browser = await play.firefox.launch(headless=True)
 
     context, page = await try_load_do_auth(
-        browser,
         config.site.host,
         config.authcache,
         config.site.username,
         config.site.password,
+        browser=browser,
     )
     raw_events = await i_fetch_extract_events(context, page, config.site.host)
 
