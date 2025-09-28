@@ -4,12 +4,12 @@ Bridge to legacy server.
 
 from typing import NamedTuple
 import sys
-import base64
 import os.path
 import logging
 import asyncio
 import argparse
 import textwrap
+import itertools
 
 import aiohttp
 import playwright.async_api
@@ -17,8 +17,11 @@ import apscheduler.triggers.interval  # type: ignore
 import apscheduler.schedulers.asyncio  # type: ignore
 
 from bridge.config import ConfigParseError, Config, try_load_config
-from bridge.cache import CacheEntry, load_cache, write_cache
-from bridge.event import Event, hash_event
+from bridge.cache import (
+    load_sort_events,
+    update_cache,
+)
+from bridge.event import Event
 from bridge.types import AppContext, PlayPersist
 from bridge.server import routes
 from bridge.client import push_event_to_clients
@@ -59,35 +62,10 @@ async def fetch_push_events(ctx: AppContext, config: Config) -> None:
         )
 
     events = list(map(Event.from_raw_event, raw_events))
-    hashes: list[str] = list(
-        map(
-            lambda bytes: bytes.decode("utf-8"),
-            map(base64.b64encode, map(hash_event, events)),
-        )
-    )
 
     async with ctx.cache_lock:
-        entries = load_cache(config.cache)
-        entry_uid_to_partial: dict[str, _PartialCacheEntry] = dict(
-            map(
-                lambda entry: (
-                    entry.uid,
-                    _PartialCacheEntry(entry.hash, entry.rev_id),
-                ),
-                entries,
-            )
-        )
-
-        to_push: list[int] = []
-
-        for i, event in enumerate(events):
-            if event.uid in entry_uid_to_partial:
-                entry_hash = entry_uid_to_partial[event.uid].hash
-
-                if entry_hash == hashes[i]:
-                    continue
-
-            to_push.append(i)
+        sort = load_sort_events(config.cache, events)
+        to_push = itertools.chain(sort.new, sort.updated)
 
         for idx in to_push:
             event = events[idx]
@@ -95,33 +73,7 @@ async def fetch_push_events(ctx: AppContext, config: Config) -> None:
             logging.info("pushing event id=%s to clients", event.uid)
             await push_event_to_clients(config, event)
 
-        updated_event_uids = frozenset(
-            map(lambda event: event.uid, map(lambda i: events[i], to_push))
-        )
-
-        def _derive_entry(i: int) -> CacheEntry:
-            """
-            Derive a CacheEntry from an Event.
-
-            If the Event is new create a new CacheEntry with rev_id = 0;
-            Otherwise, make an entry with a incremented rev_id.
-            """
-            event = events[i]
-            ehash = hashes[i]
-
-            if event.uid not in entry_uid_to_partial:
-                return CacheEntry(event.uid, ehash, 0)
-
-            existing = entry_uid_to_partial[event.uid]
-            return CacheEntry(event.uid, ehash, existing.rev_id + 1)
-
-        n_entries: list[CacheEntry] = []
-        n_entries.extend(
-            filter(lambda entry: entry.uid not in updated_event_uids, entries)
-        )
-        n_entries.extend(map(_derive_entry, to_push))
-
-        write_cache(config.cache, n_entries)
+        update_cache(config.cache, events, sort=sort)
 
 
 async def run(config: Config) -> None:

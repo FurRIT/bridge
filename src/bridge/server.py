@@ -94,7 +94,7 @@ async def _update_clients(ctx: AppContext, eid: str) -> None:
 
         assert found is not None
 
-    hashed = base64.b64encode(hash_event(event)).decode("utf-8")
+    hashed = hash_event(event)
     if found.hash == hashed:
         logging.info("bgupd event id=%s | no difference", eid)
         return

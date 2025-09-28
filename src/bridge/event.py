@@ -6,6 +6,7 @@ from __future__ import annotations
 from typing import Any, cast
 import enum
 import json
+import base64
 import hashlib
 import datetime
 import dataclasses
@@ -217,7 +218,7 @@ class Event:
         return base
 
 
-def hash_event(event: Event) -> bytes:
+def hash_event(event: Event) -> str:
     """
     Hacky workaround to avoid implementing a __hash__ method for an Event.
 
@@ -230,4 +231,7 @@ def hash_event(event: Event) -> bytes:
     se_bytes = se_str.encode("utf-8")
     hasher = hashlib.blake2b(se_bytes)
 
-    return hasher.digest()
+    dig = hasher.digest()
+    enc = base64.b64encode(dig)
+
+    return enc.decode("utf-8")
