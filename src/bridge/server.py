@@ -12,7 +12,7 @@ import aiohttp.web
 
 from bridge.event import Event, hash_event
 from bridge.types import AppContext
-from bridge.cache import load_cache
+from bridge.cache import load_cache, load_sort_events, update_cache
 from bridge.client import push_event_to_clients
 from bridge.site.auth import try_load_do_auth
 from bridge.site.event import i_extract_event
@@ -85,22 +85,14 @@ async def _update_clients(ctx: AppContext, eid: str) -> None:
     event = Event.from_raw_event(raw_event_r["data"])
 
     async with ctx.cache_lock:
-        found = None
-        entries = load_cache(ctx.config.cache)
-        for entry in entries:
-            if entry.uid == event.uid:
-                found = entry
-                break
+        sort = load_sort_events(ctx.config.cache, [event])
+        duplicate = len(sort.updated) == 0
 
-        assert found is not None
+        update_cache(ctx.config.cache, [event])
 
-    hashed = hash_event(event)
-    if found.hash == hashed:
-        logging.info("bgupd event id=%s | no difference", eid)
-        return
-
-    logging.info("bgupd event id=%s | pushing", eid)
-    await push_event_to_clients(ctx.config, event)
+    if not duplicate:
+        logging.info("bgupd event id=%s | pushing", eid)
+        await push_event_to_clients(ctx.config, event)
 
 
 @routes.post("/event/{id}/rsvp")
